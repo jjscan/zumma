@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ZUMMA! MART 계산기</title>
+<style>
+  :root{
+    --paper:#FBF7F0; --red:#E11B22; --red-dark:#B5141A; --yellow:#FFD400;
+    --pink:#E5187A; --ink:#161616; --line:#ECE6DA; --card:#FFFFFF; --mut:#8A8276;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    font-family:"Apple SD Gothic Neo","Pretendard",-apple-system,system-ui,"Malgun Gothic",sans-serif;
+    background:var(--paper); color:var(--ink);
+    padding-bottom:96px;
+  }
+
+  /* ===== 상단 합계 바 ===== */
+  header{position:sticky; top:0; z-index:20;}
+  .brand{
+    background:var(--red); color:#fff; padding:10px 14px 8px;
+    display:flex; align-items:center; gap:8px;
+    border-bottom:3px solid var(--yellow);
+  }
+  .brand .logo{font-weight:900; letter-spacing:-.5px; font-size:20px; font-style:italic;}
+  .brand .logo span{color:var(--yellow);}
+  .brand .tag{margin-left:auto; font-size:12px; opacity:.9;}
+  .total{
+    background:var(--red-dark); color:#fff; padding:12px 16px 14px;
+    display:flex; align-items:baseline; gap:10px;
+  }
+  .total .lbl{font-size:16px; font-weight:700; opacity:.85;}
+  .total .amt{font-size:40px; font-weight:900; letter-spacing:-1px; line-height:1;}
+  .total .won{font-size:20px; font-weight:800; align-self:flex-end;}
+  .total .cnt{margin-left:auto; font-size:13px; opacity:.8; align-self:flex-end;}
+
+  /* ===== 섹션 ===== */
+  .sec{padding:14px 12px 2px;}
+  .sec h2{
+    margin:0 0 8px; font-size:14px; font-weight:800; color:var(--red);
+    letter-spacing:-.3px; display:flex; align-items:center; gap:6px;
+  }
+  .sec h2::before{content:"★"; color:var(--yellow); -webkit-text-stroke:1px var(--red);}
+
+  /* ===== 품목 행 ===== */
+  .row{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    margin-bottom:8px; padding:12px 12px; display:flex; align-items:center; gap:10px;
+    user-select:none;
+  }
+  .row.hit{outline:3px solid var(--yellow);}
+  .row .info{flex:1; min-width:0;}
+  .row .nm{font-size:15px; font-weight:700; line-height:1.2;}
+  .row .nm .flag{color:var(--pink); font-size:11px; font-weight:800; margin-left:4px;}
+  .row .pr{font-size:12px; color:var(--mut); margin-top:3px;}
+  .row .pr b{color:var(--ink); font-weight:700;}
+  .row .disc{color:var(--pink); font-weight:800;}
+
+  .qtybox{display:flex; align-items:center; gap:6px;}
+  .btn{
+    width:46px; height:46px; border-radius:12px; border:none; font-size:24px;
+    font-weight:900; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex:0 0 auto;
+  }
+  .btn.minus{background:#F1ECE2; color:#555;}
+  .btn.plus{background:var(--red); color:#fff;}
+  .btn:active{transform:scale(.92);}
+  .qty{min-width:30px; text-align:center; font-size:22px; font-weight:900;}
+  .qty.zero{color:#CFC8BB;}
+
+  .sub{min-width:74px; text-align:right; font-size:15px; font-weight:800;}
+  .sub.zero{color:#CFC8BB; font-weight:600;}
+
+  /* 큰 +탭 영역 (행 왼쪽 전체) */
+  .tap{flex:1; display:flex; align-items:center; gap:10px; cursor:pointer; min-width:0;}
+
+  /* ===== 가격 수정 ===== */
+  .edit{display:none; gap:6px; align-items:center; margin-top:8px;}
+  .row.editing .edit{display:flex; flex-wrap:wrap;}
+  .edit label{font-size:11px; color:var(--mut); font-weight:700;}
+  .edit input{
+    width:78px; padding:7px 8px; border:1px solid #D9D2C5; border-radius:8px;
+    font-size:14px; font-weight:700; text-align:right;
+  }
+  .row .gear{
+    width:34px; height:34px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; font-size:15px; cursor:pointer; flex:0 0 auto; color:#9a9384;
+  }
+  .row.editing .gear{background:var(--ink); color:#fff; border-color:var(--ink);}
+
+  /* ===== 하단 고정 바 ===== */
+  .footbar{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    background:#fff; border-top:1px solid var(--line);
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    display:flex; gap:10px;
+  }
+  .foottotal{flex:1; display:flex; flex-direction:column; justify-content:center;}
+  .foottotal .l{font-size:11px; color:var(--mut); font-weight:700;}
+  .foottotal .v{font-size:26px; font-weight:900; letter-spacing:-.5px; line-height:1;}
+  .clear{
+    border:none; background:var(--ink); color:#fff; font-weight:800; font-size:15px;
+    padding:0 18px; border-radius:14px; cursor:pointer;
+  }
+  .clear:active{transform:scale(.96);}
+
+  .editmode-bar{
+    background:var(--pink); color:#fff; font-size:12px; font-weight:700;
+    padding:7px 14px; text-align:center; display:none;
+  }
+  body.editing-on .editmode-bar{display:block;}
+  .topgear{
+    margin-left:8px; background:rgba(255,255,255,.2); border:none; color:#fff;
+    font-size:12px; font-weight:800; padding:6px 10px; border-radius:8px; cursor:pointer;
+  }
+  @media (prefers-reduced-motion: reduce){ .btn:active,.clear:active{transform:none;} }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">ZUMMA! <span>MART</span></div>
+    <div class="tag">B20 줌마신당 · 합산 계산기</div>
+    <button class="topgear" id="editToggle">가격수정</button>
+  </div>
+  <div class="total">
+    <div class="lbl">합계</div>
+    <div class="amt" id="totalAmt">0</div>
+    <div class="won">원</div>
+    <div class="cnt" id="itemCnt">0개</div>
+  </div>
+  <div class="editmode-bar">가격 수정 모드 — 각 행의 ⚙︎ 를 눌러 단가/묶음가를 고쳐라. (새로고침하면 초기화됨)</div>
+</header>
+
+<main id="app"></main>
+
+<div class="footbar">
+  <div class="foottotal">
+    <div class="l">합계 (<span id="footCnt">0</span>개)</div>
+    <div class="v"><span id="footAmt">0</span>원</div>
+  </div>
+  <button class="clear" id="clearBtn">다음 손님<br>초기화</button>
+</div>
+
+<script>
+// pair: 묶음(2개) 가격. flag: 포스터에서 흐려서 확인 필요한 항목.
+const DATA = [
+  { sec:"티셔츠 (전 디자인 공용)", items:[
+    { id:"tshirt", nm:"티셔츠", single:29000, pair:50000 },
+  ]},
+  { sec:"키링", items:[
+    { id:"k_love", nm:"러브붓다 키링", single:9000, pair:17000 },
+    { id:"k_meme", nm:"부처밈 키링 (4종)", single:9000, pair:17000 },
+    { id:"k_zumma", nm:"줌마보살 키링", single:7000 },
+  ]},
+  { sec:"맥세이프톡", items:[
+    { id:"t_zumma", nm:"줌마보살 맥세이프톡", single:12900, pair:24000 },
+    { id:"t_love", nm:"러브붓다 맥세이프톡", single:12900, pair:24000 },
+  ]},
+  { sec:"부채 · 키캡", items:[
+    { id:"fan", nm:"부처봐 부채", single:4000, pair:7000, flag:true },
+    { id:"keycap", nm:"부적 키캡", single:9000, pair:17000 },
+  ]},
+  { sec:"엽서 · 스티커", items:[
+    { id:"pc", nm:"극락의 맛 엽서", single:2000, pair:3000, flag:true },
+    { id:"pc_set", nm:"극락의 맛 엽서 세트", single:6000, flag:true },
+    { id:"st_geuk", nm:"극락의 맛 스티커(3장)", single:2000, flag:true },
+    { id:"st_set", nm:"스티커 세트(2+1)", single:5000, buy2plus1:true },
+    { id:"st_card", nm:"돈이 들어온다 카드스티커", single:2000, flag:true },
+    { id:"st_power", nm:"줌마파워 스티커", single:2000 },
+    { id:"st_bujeok", nm:"줌마부적 스티커", single:3000 },
+    { id:"st_giun", nm:"기운 보완 스티커 5개 세트", single:3500 },
+  ]},
+  { sec:"포스터 · 기타", items:[
+    { id:"random", nm:"오늘의 랜덤 잔소리 뽑기(10매)", single:5000 },
+    { id:"poster", nm:"줌마보살 잔소리 포스터", single:10000 },
+    { id:"pc3", nm:"잔소리 엽서 3개 세트", single:5000 },
+  ]},
+];
+
+const state = {}; // id -> {qty, single, pair}
+DATA.forEach(g=>g.items.forEach(it=>{
+  state[it.id] = { qty:0, single:it.single, pair:it.pair||null, b2p1:it.buy2plus1||false };
+}));
+
+const won = n => n.toLocaleString("ko-KR");
+
+function lineSubtotal(s){
+  if(s.b2p1){
+    const free = Math.floor(s.qty/3);
+    return { amt:(s.qty-free)*s.single, discounted: free>0, free };
+  }
+  if(s.pair && s.qty>=2){
+    const pairs = Math.floor(s.qty/2), rem = s.qty%2;
+    return { amt: pairs*s.pair + rem*s.single, discounted: pairs>0 };
+  }
+  return { amt: s.qty*s.single, discounted:false };
+}
+
+function priceLabel(s){
+  if(s.b2p1) return `2+1 · 개당 <b>${won(s.single)}</b>`;
+  if(s.pair) return `1개 <b>${won(s.single)}</b> · 2개 <b>${won(s.pair)}</b>`;
+  return `<b>${won(s.single)}</b>원`;
+}
+
+function discText(s){
+  const r = lineSubtotal(s);
+  if(!r.discounted) return '';
+  if(s.b2p1) return ` <span class="disc">${r.free}개 무료</span>`;
+  return ' <span class="disc">묶음가 적용</span>';
+}
+
+function render(){
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+  DATA.forEach(g=>{
+    const sec = document.createElement("section");
+    sec.className="sec";
+    sec.innerHTML = `<h2>${g.sec}</h2>`;
+    g.items.forEach(it=>{
+      const s = state[it.id];
+      const { amt, discounted } = lineSubtotal(s);
+      const row = document.createElement("div");
+      row.className = "row" + (s.qty>0 ? "" : "");
+      row.dataset.id = it.id;
+      row.innerHTML = `
+        <div class="tap" data-act="plus">
+          <div class="info">
+            <div class="nm">${it.nm}${it.flag?'<span class="flag">확인</span>':''}</div>
+            <div class="pr">${priceLabel(s)}${discText(s)}</div>
+          </div>
+          <div class="qty ${s.qty===0?'zero':''}">${s.qty}</div>
+        </div>
+        <div class="qtybox">
+          <button class="btn minus" data-act="minus" aria-label="빼기">－</button>
+          <button class="btn plus" data-act="plus2" aria-label="더하기">＋</button>
+        </div>
+        <div class="sub ${amt===0?'zero':''}">${won(amt)}</div>
+        <button class="gear" data-act="gear" aria-label="가격수정">⚙︎</button>
+        <div class="edit">
+          <label>단가<input type="number" inputmode="numeric" data-f="single" value="${s.single}"></label>
+          ${s.pair!==null?`<label>2개<input type="number" inputmode="numeric" data-f="pair" value="${s.pair}"></label>`:''}
+        </div>`;
+      sec.appendChild(row);
+    });
+    app.appendChild(sec);
+  });
+  updateTotals();
+}
+
+function updateTotals(){
+  let total=0, count=0;
+  for(const id in state){
+    const s=state[id];
+    total += lineSubtotal(s).amt;
+    count += s.qty;
+  }
+  document.getElementById("totalAmt").textContent = won(total);
+  document.getElementById("itemCnt").textContent = count+"개";
+  document.getElementById("footAmt").textContent = won(total);
+  document.getElementById("footCnt").textContent = count;
+  document.getElementById("clearBtn").style.opacity = count>0 ? "1" : ".45";
+}
+
+function refreshRow(id){
+  const row = document.querySelector(`.row[data-id="${id}"]`);
+  if(!row) return;
+  const s = state[id];
+  const { amt, discounted } = lineSubtotal(s);
+  const qEl = row.querySelector(".qty");
+  qEl.textContent = s.qty;
+  qEl.classList.toggle("zero", s.qty===0);
+  const subEl = row.querySelector(".sub");
+  subEl.textContent = won(amt);
+  subEl.classList.toggle("zero", amt===0);
+  const prEl = row.querySelector(".pr");
+  prEl.innerHTML = priceLabel(s) + discText(s);
+  updateTotals();
+}
+
+// 이벤트 위임
+document.getElementById("app").addEventListener("click",(e)=>{
+  const row = e.target.closest(".row"); if(!row) return;
+  const id = row.dataset.id;
+  const actEl = e.target.closest("[data-act]");
+  const act = actEl ? actEl.dataset.act : null;
+
+  if(act==="plus" || act==="plus2"){
+    state[id].qty++;
+    flash(row); refreshRow(id);
+  } else if(act==="minus"){
+    if(state[id].qty>0) state[id].qty--;
+    refreshRow(id);
+  } else if(act==="gear"){
+    row.classList.toggle("editing");
+  }
+});
+
+// 가격 수정 입력
+document.getElementById("app").addEventListener("input",(e)=>{
+  const inp = e.target.closest("input[data-f]"); if(!inp) return;
+  const row = e.target.closest(".row"); const id=row.dataset.id;
+  const f = inp.dataset.f;
+  const v = parseInt(inp.value.replace(/[^0-9]/g,""),10);
+  state[id][f] = isNaN(v)?0:v;
+  refreshRow(id);
+});
+
+function flash(row){
+  row.classList.add("hit");
+  setTimeout(()=>row.classList.remove("hit"),120);
+}
+
+document.getElementById("clearBtn").addEventListener("click",()=>{
+  let count=0; for(const id in state) count+=state[id].qty;
+  if(count===0) return;
+  if(confirm("전체 수량을 초기화할까요? (다음 손님)")){
+    for(const id in state) state[id].qty=0;
+    render();
+    window.scrollTo({top:0,behavior:"instant"});
+  }
+});
+
+document.getElementById("editToggle").addEventListener("click",()=>{
+  document.body.classList.toggle("editing-on");
+  const on = document.body.classList.contains("editing-on");
+  document.getElementById("editToggle").textContent = on?"수정완료":"가격수정";
+  if(!on) document.querySelectorAll(".row.editing").forEach(r=>r.classList.remove("editing"));
+});
+
+render();
+</script>
+</body>
+</html>
