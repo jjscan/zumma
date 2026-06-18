@@ -106,6 +106,59 @@
   }
   .clear:active{transform:scale(.96);}
 
+  .foottotal{cursor:pointer;}
+  .foottotal .l .hint{color:var(--red); font-weight:800; margin-left:4px;}
+
+  /* ===== 영수증 바텀시트 ===== */
+  .sheetbg{
+    position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:40;
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .sheetbg.open{opacity:1; pointer-events:auto;}
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:50;
+    background:var(--paper); border-radius:18px 18px 0 0;
+    max-height:82vh; display:flex; flex-direction:column;
+    transform:translateY(101%); transition:transform .24s ease;
+    box-shadow:0 -8px 30px rgba(0,0,0,.18);
+  }
+  .sheet.open{transform:translateY(0);}
+  .sheet .rc-head{
+    background:var(--red); color:#fff; padding:14px 16px 12px;
+    border-radius:18px 18px 0 0; border-bottom:3px solid var(--yellow);
+    display:flex; align-items:center; gap:8px;
+  }
+  .sheet .rc-head .t{font-weight:900; font-size:18px; font-style:italic; letter-spacing:-.5px;}
+  .sheet .rc-head .t span{color:var(--yellow);}
+  .sheet .rc-head .x{
+    margin-left:auto; background:rgba(255,255,255,.2); border:none; color:#fff;
+    width:34px; height:34px; border-radius:9px; font-size:18px; font-weight:900; cursor:pointer;
+  }
+  .rc-sub{
+    text-align:center; font-size:11px; color:var(--mut); font-weight:700;
+    padding:8px 0 4px; letter-spacing:1px;
+    border-bottom:1px dashed #D8D1C3; margin:0 14px;
+  }
+  .rc-list{overflow-y:auto; -webkit-overflow-scrolling:touch; padding:6px 14px 2px;}
+  .rc-line{
+    display:flex; align-items:baseline; gap:8px; padding:9px 0;
+    border-bottom:1px dotted #E2DBCD;
+  }
+  .rc-line .rc-nm{flex:1; min-width:0; font-size:14px; font-weight:700;}
+  .rc-line .rc-nm .rc-d{display:block; font-size:11px; color:var(--pink); font-weight:700; margin-top:1px;}
+  .rc-line .rc-q{width:48px; text-align:right; font-size:13px; color:var(--mut); font-weight:700;}
+  .rc-line .rc-amt{width:80px; text-align:right; font-size:15px; font-weight:800;}
+  .rc-empty{padding:36px 0; text-align:center; color:var(--mut); font-size:14px; font-weight:700;}
+  .rc-foot{
+    border-top:2px solid var(--ink); margin:0 14px;
+    padding:12px 0 calc(16px + env(safe-area-inset-bottom));
+    display:flex; align-items:baseline; gap:8px;
+  }
+  .rc-foot .l{font-size:15px; font-weight:800;}
+  .rc-foot .l small{color:var(--mut); font-weight:700; font-size:12px; margin-left:4px;}
+  .rc-foot .v{margin-left:auto; font-size:30px; font-weight:900; letter-spacing:-1px; color:var(--red);}
+  .rc-foot .v small{font-size:16px; margin-left:2px; color:var(--ink);}
+
   .editmode-bar{
     background:var(--pink); color:#fff; font-size:12px; font-weight:700;
     padding:7px 14px; text-align:center; display:none;
@@ -137,11 +190,25 @@
 <main id="app"></main>
 
 <div class="footbar">
-  <div class="foottotal">
-    <div class="l">합계 (<span id="footCnt">0</span>개)</div>
+  <div class="foottotal" id="foottotal">
+    <div class="l">합계 (<span id="footCnt">0</span>개)<span class="hint">📃 영수증</span></div>
     <div class="v"><span id="footAmt">0</span>원</div>
   </div>
   <button class="clear" id="clearBtn">다음 손님<br>초기화</button>
+</div>
+
+<div class="sheetbg" id="sheetBg"></div>
+<div class="sheet" id="sheet">
+  <div class="rc-head">
+    <div class="t">ZUMMA! <span>MART</span></div>
+    <button class="x" id="rcClose" aria-label="닫기">✕</button>
+  </div>
+  <div class="rc-sub">B20 줌마신당 · 주문 내역</div>
+  <div class="rc-list" id="rcList"></div>
+  <div class="rc-foot">
+    <div class="l">합계 <small>(<span id="rcCount">0</span>개)</small></div>
+    <div class="v"><span id="rcTotal">0</span><small>원</small></div>
+  </div>
 </div>
 
 <script>
@@ -322,6 +389,46 @@ document.getElementById("clearBtn").addEventListener("click",()=>{
     window.scrollTo({top:0,behavior:"instant"});
   }
 });
+
+// ===== 영수증 시트 =====
+function buildReceipt(){
+  const list = document.getElementById("rcList");
+  list.innerHTML = "";
+  let total=0, count=0;
+  DATA.forEach(g=>g.items.forEach(it=>{
+    const s = state[it.id];
+    if(s.qty<=0) return;
+    const r = lineSubtotal(s);
+    total += r.amt; count += s.qty;
+    const note = r.discounted
+      ? (s.b2p1 ? `${r.free}개 무료` : `묶음가 적용`)
+      : "";
+    const line = document.createElement("div");
+    line.className = "rc-line";
+    line.innerHTML =
+      `<div class="rc-nm">${it.nm}${note?`<span class="rc-d">${note}</span>`:""}</div>`+
+      `<div class="rc-q">${s.qty}개</div>`+
+      `<div class="rc-amt">${won(r.amt)}</div>`;
+    list.appendChild(line);
+  }));
+  if(count===0){
+    list.innerHTML = '<div class="rc-empty">아직 담긴 항목이 없습니다.</div>';
+  }
+  document.getElementById("rcTotal").textContent = won(total);
+  document.getElementById("rcCount").textContent = count;
+}
+function openReceipt(){
+  buildReceipt();
+  document.getElementById("sheetBg").classList.add("open");
+  document.getElementById("sheet").classList.add("open");
+}
+function closeReceipt(){
+  document.getElementById("sheetBg").classList.remove("open");
+  document.getElementById("sheet").classList.remove("open");
+}
+document.getElementById("foottotal").addEventListener("click", openReceipt);
+document.getElementById("sheetBg").addEventListener("click", closeReceipt);
+document.getElementById("rcClose").addEventListener("click", closeReceipt);
 
 document.getElementById("editToggle").addEventListener("click",()=>{
   document.body.classList.toggle("editing-on");
